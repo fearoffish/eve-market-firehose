@@ -1,0 +1,3 @@
+kill $(cat firehose.pid)
+rm -rf firehose.pid
+echo "$(date) LOG: Process terminated" >> firehose.log 

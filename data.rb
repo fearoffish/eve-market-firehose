@@ -21,17 +21,15 @@ loop do
   market_json = Zlib::Inflate.new(Zlib::MAX_WBITS).inflate(string)
   market_data = JSON.parse(market_json)
 
-  puts "LOG: Recieved message"
-  puts market_data
-
   category = market_data.fetch('resultType')
   rows = market_data.fetch('rowsets')
   for row in rows
     region = row.fetch('regionID')
     type = row.fetch('typeID')
     date = row.fetch('generatedAt')
+    curr_date = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%S+00:00")
 
-    if category == "history" or category == "orders"
+    if ( category == "history" or category == "orders" ) and date <= curr_date
       # Specifies which category this record is about.
       if category == "history"
         @selected = @history
@@ -53,7 +51,12 @@ loop do
         end 
       end
     else 
-      puts "ERROR: Category #{type} doesn't exist."
+      if date > curr_date
+        puts "ERROR: Time #{date} happens after current time #{curr_time}. Offending message is:"
+      else
+        puts "ERROR: Category #{category} doesn't exist. Offending message is:"
+      end
+      puts market_data
     end
   end
 end
