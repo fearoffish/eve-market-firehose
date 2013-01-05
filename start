@@ -1,8 +1,10 @@
 #!/bin/bash
 
 local_dir="$(dirname $0)"
-kill $(cat $local_dir/firehose.pid)
-rm -rf $local_dir/firehose.pid
+if [ -e $local_dir/firehose.pid ]; then
+    kill $(cat $local_dir/firehose.pid)
+    rm -rf $local_dir/firehose.pid
+fi
 bundle install --quiet
 bundle exec ruby data.rb >> $local_dir/firehose.log 2>&1 &
 echo "$!" >> $local_dir/firehose.pid
