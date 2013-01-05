@@ -52,7 +52,7 @@ loop do
       end
     else 
       if date > curr_date
-        puts "ERROR: Time #{date} happens after current time #{curr_time}. Offending message is:"
+        puts "ERROR: Time #{date} happens after current time #{curr_date}. Offending message is:"
       else
         puts "ERROR: Category #{category} doesn't exist. Offending message is:"
       end
