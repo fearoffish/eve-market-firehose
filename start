@@ -1,11 +1,14 @@
 #!/bin/bash
 
 local_dir="$(dirname $0)"
-if [ -e $local_dir/firehose.pid ]; then
-    kill $(cat $local_dir/firehose.pid)
-    rm -rf $local_dir/firehose.pid
-fi
-bundle install --quiet
-bundle exec ruby data.rb >> $local_dir/firehose.log 2>&1 &
-echo "$!" >> $local_dir/firehose.pid
-echo "$(date) Drinking from the firehose successfully!" >> $local_dir/firehose.log
+_dir=$(pwd)
+cd $local_dir
+    if [ -e firehose.pid ]; then
+        kill $(cat firehose.pid)
+        rm -rf firehose.pid
+    fi
+    bundle install --quiet
+    bundle exec ruby data.rb >> firehose.log 2>&1 &
+    echo "$!" >> firehose.pid
+    echo "$(date) Drinking from the firehose successfully!" >> firehose.log
+cd $_dir
