@@ -1,9 +1,10 @@
 #!/bin/bash
 
-if [ -e firehose.pid ]; then
-	kill $(cat firehose.pid)
-	rm -rf firehose.pid
-	echo "$(date) LOG: Process terminated" >> firehose.log 
+local_dir="$(dirname $0)"
+if [ -e $local_dir/firehose.pid ]; then
+	kill $(cat $local_dir/firehose.pid)
+	rm -rf $local_dir/firehose.pid
+	echo "$(date) LOG: Process terminated" >> $local_dir/firehose.log 
 else
     echo "Process doesn't seem to be running (No pid file)"
 fi

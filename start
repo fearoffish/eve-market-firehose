@@ -1,6 +1,7 @@
 #!/bin/bash
 
-if [ -e firehose.pid ]; then
+local_dir="$(dirname $0)"
+if [ -e local_dir/firehose.pid ]; then
     echo "Process seems to be running (pid file still exists). To be safe, run the stop script first."
 else
     bundle install --quiet
