@@ -1,3 +1,9 @@
-kill $(cat firehose.pid)
-rm -rf firehose.pid
-echo "$(date) LOG: Process terminated" >> firehose.log 
+#!/bin/bash
+
+if [ -e firehose.pid ]; then
+	kill $(cat firehose.pid)
+	rm -rf firehose.pid
+	echo "$(date) LOG: Process terminated" >> firehose.log 
+else
+    echo "Process doesn't seem to be running (No pid file)"
+fi

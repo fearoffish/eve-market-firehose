@@ -1,5 +1,10 @@
-bundle install --quiet
-bundle exec ruby data.rb >> firehose.log 2>&1 &
-rm -rf firehose.pid
-echo "$!" >> firehose.pid
-echo "$(date) Drinking from the firehose successfully!" >> firehose.log
+#!/bin/bash
+
+if [ -e firehose.pid ]; then
+    echo "Process seems to be running (pid file still exists). To be safe, run the stop script first."
+else
+    bundle install --quiet
+    bundle exec ruby data.rb >> firehose.log 2>&1 &
+    echo "$!" >> firehose.pid
+    echo "$(date) Drinking from the firehose successfully!" >> firehose.log
+fi

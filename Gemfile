@@ -1,3 +1,5 @@
+source :rubygems
+
 gem 'json'
 gem 'bson_ext'
 gem 'mongo'
