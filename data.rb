@@ -5,6 +5,8 @@ require 'zlib'
 require 'mongo'
 include Mongo
 
+# This connects to a local MongoDB instance. 
+# Feel free to change it if you want to connect to a remote instance.
 @client = MongoClient.new('127.0.0.1', 27017)
 @db = @client['eve']
 @orders = @db['orders']
@@ -13,7 +15,16 @@ include Mongo
 context = ZMQ::Context.new
 subscriber = context.socket(ZMQ::SUB)
 
+# It is recommended to uncomment at least 2 mirrors from this list. 
+# By default we assume that you are located in the USA.
 subscriber.connect("tcp://relay-us-central-1.eve-emdr.com:8050")
+subscriber.connect("tcp://relay-us-east-1.eve-emdr.com:8050")
+subscriber.connect("tcp://relay-us-west-1.eve-emdr.com:8050")
+# subscriber.connect("tcp://relay-eu-uk-1.eve-emdr.com:8050")
+# subscriber.connect("tcp://relay-eu-france-2.eve-emdr.com:8050")
+# subscriber.connect("tcp://relay-eu-denmark-1.eve-emdr.com:8050")
+# subscriber.connect("tcp://relay-eu-germany-1.eve-emdr.com:8050")
+
 subscriber.setsockopt(ZMQ::SUBSCRIBE,"")
 
 loop do
