@@ -7,15 +7,15 @@
 ## Notes:
 I recommend that you perform the following operations on the MongoDB database before anything else:
 
-    mongo
-    > use eve
-    > db.history.ensureIndex( { "typeID": 1, "regionID": 1 }, { unique: true, dropDups: true } )
-    > db.orders.ensureIndex( { "typeID": 1, "regionID": 1 }, { unique: true, dropDups: true } )
-    > db.orders.ensureIndex( { regionID: 1 } )
-    > db.orders.ensureIndex( { typeID: 1 } )
-    > db.history.ensureIndex( { typeID: 1 } )
-    > db.history.ensureIndex( { regionID: 1 } )
-    > exit
+    $ mongo
+    use eve
+    db.history.ensureIndex( { "typeID": 1, "regionID": 1 }, { unique: true, dropDups: true } )
+    db.orders.ensureIndex( { "typeID": 1, "regionID": 1 }, { unique: true, dropDups: true } )
+    db.orders.ensureIndex( { regionID: 1 } )
+    db.orders.ensureIndex( { typeID: 1 } )
+    db.history.ensureIndex( { typeID: 1 } )
+    db.history.ensureIndex( { regionID: 1 } )
+    exit
 
 ## Installation
 
