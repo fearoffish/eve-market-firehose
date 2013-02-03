@@ -31,3 +31,5 @@ Installing files is made through the Makefile. It also has an uninstall option.
 	/var/log/eve/emdr-read.log
 
 It assumes that you're using systemd for init. Otherwise feel free to start it up with your own script.
+
+The target emdr-read.target is composed of the EMDR Relay and MongoDB in my case. Feel free to change it how you'd like
