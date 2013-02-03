@@ -18,14 +18,15 @@ context = ZMQ::Context.new
 subscriber = context.socket(ZMQ::SUB)
 
 # It is recommended to keep at least 3 mirrors from this list.
-subscriber.connect('tcp://relay-eu-uk-1.eve-emdr.com:8050')
-subscriber.connect('tcp://relay-us-east-1.eve-emdr.com:8050')
-subscriber.connect('tcp://relay-us-west-1.eve-emdr.com:8050')
-subscriber.connect('tcp://relay-ca-east-1.eve-emdr.com:8050')
-subscriber.connect('tcp://relay-eu-france-2.eve-emdr.com:8050')
+# This assumes you'll be around US-East, but you can change this.
+#subscriber.connect('tcp://relay-us-west-1.eve-emdr.com:8050')
 subscriber.connect('tcp://relay-us-central-1.eve-emdr.com:8050')
-subscriber.connect('tcp://relay-eu-denmark-1.eve-emdr.com:8050')
-subscriber.connect('tcp://relay-eu-germany-1.eve-emdr.com:8050')
+subscriber.connect('tcp://relay-ca-east-1.eve-emdr.com:8050')
+subscriber.connect('tcp://relay-us-east-1.eve-emdr.com:8050')
+#subscriber.connect('tcp://relay-eu-uk-1.eve-emdr.com:8050')
+#subscriber.connect('tcp://relay-eu-france-2.eve-emdr.com:8050')
+#subscriber.connect('tcp://relay-eu-germany-1.eve-emdr.com:8050')
+#subscriber.connect('tcp://relay-eu-denmark-1.eve-emdr.com:8050')
 subscriber.setsockopt(ZMQ::SUBSCRIBE,'')
 
 # Setup logger. Feel free to change the logs' location
@@ -118,7 +119,7 @@ loop do
 
         # If the current document is older than the latest,
         # It may still contain old data the DB doesn't have
-        elsif @selected == @
+        elsif @selected == @history
             rows = combine_rows(current['rows'], entry['rows'])
             @selected.update({'_id' => id}, {'$set' => {'rows' => rows}})
         end 
