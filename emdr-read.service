@@ -1,0 +1,13 @@
+[Unit]
+Description=EMDR Reader for MongoDB
+After=emdr-read.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ruby /usr/lib/eve/data.rb
+User=daemon
+Group=daemon
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

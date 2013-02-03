@@ -1,8 +1,8 @@
 # EvE Market Data Client
 ## Dependencies:
 - MongoDB
-- Ruby (Tested with 1.9.3)
 - ZeroMQ
+- Ruby (Tested with 1.9.3)
 
 ## Notes:
 I recommend that you perform the following operations on the MongoDB database before anything else:
@@ -17,10 +17,17 @@ I recommend that you perform the following operations on the MongoDB database be
     > db.history.ensureIndex( { regionID: 1 } )
     > exit
 
+## Installation
 
-## Hardware requirements:
+Get the gems with bundler! But be careful, they should be installed system-wide or for the user who'll run this program (Daemon by default)
 
-Currently this program consumes almost always less than (Along with the MongoDB writes):
+Installing files is made through the Makefile. It also has an uninstall option.
 
-- 512MB RAM
-- 360 MHz (From an Atom D425 CPU)
+	sudo make install
+
+	# Installs the following:
+	/usr/lib/systemd/system/emdr-read.service
+	/usr/lib/eve/data.rb
+	/var/log/eve/emdr-read.log
+
+It assumes that you're using systemd for init. Otherwise feel free to start it up with your own script.
