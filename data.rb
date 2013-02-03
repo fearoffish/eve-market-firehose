@@ -71,6 +71,10 @@ loop do
         hashed_rows.push(hashed_row)
       end
 
+      # We update our content with the new hashed arrays
+      updated_rows = Hash["rows", hashed_rows]
+      row.update(updated_rows)
+
       # We check if a record is already there for the given region and item
       region = row.fetch('regionID')
       type = row.fetch('typeID')
