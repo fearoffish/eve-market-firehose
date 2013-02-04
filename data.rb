@@ -1,141 +1,163 @@
+# Copyright 2012-2013 Benjamin Savoy
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 require 'rubygems'
 require 'ffi-rzmq'
-require 'json'
 require 'zlib'
-require 'mongo'
+require 'cityhash'
 require 'logger'
+require 'mongo'
+require 'json'
 include Mongo
 
+### Begin config
+
 # This connects to a local MongoDB instance. 
-# Feel free to change it if you want to connect to a remote instance.
+# Feel free to change it to your own specifications
 @client = MongoClient.new('127.0.0.1', 27017)
 @db = @client['eve']
-@orders = @db['orders']
-@history = @db['history']
+@coll = Hash[]
+@coll.default_proc = proc do |hash, key|
+  hash[key] = @db[key]
+end
 
-# Setup ZeroMQ
+# The amount of message hashes to keep in memory.
+# Default size is 64 which consumes very little RAM.
+buffer_size = 64
+
+# Setup logger. Feel free to change the location.
+# Default location is /var/log/eve/emdr-{read, api}.log
+# Default threshold is Logger::INFO
+logger = Logger.new('/var/log/eve/emdr-read.log')
+logger.sev_threshold = Logger::INFO
+
+# All mirrors can be left uncommented, as deduplication occurs.
+# But if you prefer, you can go down to 2-3 mirrors.
+relays = Array[]
+relays.push('tcp://relay-us-west-1.eve-emdr.com:8050')
+relays.push('tcp://relay-us-central-1.eve-emdr.com:8050')
+relays.push('tcp://relay-ca-east-1.eve-emdr.com:8050')
+relays.push('tcp://relay-us-east-1.eve-emdr.com:8050')
+relays.push('tcp://relay-eu-uk-1.eve-emdr.com:8050')
+relays.push('tcp://relay-eu-france-2.eve-emdr.com:8050')
+relays.push('tcp://relay-eu-germany-1.eve-emdr.com:8050')
+relays.push('tcp://relay-eu-denmark-1.eve-emdr.com:8050')
+
+### End config
+
 context = ZMQ::Context.new
 subscriber = context.socket(ZMQ::SUB)
 
-# It is recommended to keep at least 3 mirrors from this list.
-# This assumes you'll be around US-East, but you can change this.
-#subscriber.connect('tcp://relay-us-west-1.eve-emdr.com:8050')
-subscriber.connect('tcp://relay-us-central-1.eve-emdr.com:8050')
-subscriber.connect('tcp://relay-ca-east-1.eve-emdr.com:8050')
-subscriber.connect('tcp://relay-us-east-1.eve-emdr.com:8050')
-#subscriber.connect('tcp://relay-eu-uk-1.eve-emdr.com:8050')
-#subscriber.connect('tcp://relay-eu-france-2.eve-emdr.com:8050')
-#subscriber.connect('tcp://relay-eu-germany-1.eve-emdr.com:8050')
-#subscriber.connect('tcp://relay-eu-denmark-1.eve-emdr.com:8050')
-subscriber.setsockopt(ZMQ::SUBSCRIBE,'')
-
-# Setup logger. Feel free to change the logs' location
-logger = Logger.new('/var/log/eve/emdr-read.log')
-logger.info {'Starting up EMDR reader' }
-
-
-# This function is tailored to keep older history records on board.
-# It adds to 'main' all elements from 'secondary' that don't exist in 'main'
-# It takes as input the content of 'rows' in the data.
-def combine_rows(main, secondary)
-   for sec_row in secondary
-    matching_row = main.select{|f| f['date'] == sec_row['date']}
-    if matching_row == nil
-      main.push(matching_row)
-    end
-  end
-  return main
+relays.each do |relay|
+  subscriber.connect(relay)
 end
 
-# Start reading messages
+subscriber.setsockopt(ZMQ::SUBSCRIBE,'')
+
+class Hash
+  # This function transforms an entry's rows into hashes, 
+  # With indexes specified by 'columns'
+  def zip!(columns)
+    hashed_rows = Array[]
+    self['rows'].each do |self_row|
+      hashed_rows.push(Hash[columns.zip(self_row)])
+    end
+    self['rows'] = hashed_rows
+  end
+
+  # This function takes two entries and merges rows
+  # From 'hash' to 'self' if they don't exist already.
+  def combine!(hash)
+    self_rows = self['rows']
+    hash['rows'].each do |hash_row|
+      matching_row = self_rows.find {|f| f['date'] == hash_row['date']}
+      if matching_row == nil
+        self_rows.push(hash_row)
+      end
+    end
+    self['rows'] = self_rows
+  end
+
+  # This is a simple function to keep a hash to a moderate size
+  def cleanup!(max_len)
+    if self.length >= max_len
+      self.clear
+    end
+  end
+end
+
+logger.fatal "Started EMDR Reader"
+processed = Hash[]
 loop do
 
-  # Grab the latest message, and put it in a hash
   subscriber.recv_string(string = '')
   market_json = Zlib::Inflate.new(Zlib::MAX_WBITS).inflate(string)
-  market_data = JSON.parse(market_json)
+  message_id = CityHash.hash128(market_json)
 
-  # Get only the necessary information. The rest can be discarded.
-  category = market_data['resultType']
-  columns = market_data['columns']
-  rowsets = market_data['rowsets']
+  if processed[message_id] == nil
+    processed.cleanup!(buffer_size)
+    processed[message_id] = 1
 
-  # Iterate over the several items which may be present in a single message.
-  for entry in rowsets
-
-    # This is the date format that MongoDB uses. 
-    # We only then have to compare them alphabetically.
     system_date = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%S+00:00")
-    # We first check if the data is not corrupted
-    entry_date = entry['generatedAt']
-    if ( category == 'history' or category == 'orders' ) and entry_date <= system_date
+    market_data = JSON.parse(market_json)
 
-      # Specifies which category this record is about.
-      if category == 'history'
-        @selected = @history
-      else
-        @selected = @orders
-      end
+    category = market_data['resultType']
+    columns = market_data['columns']
+    rowsets = market_data['rowsets']
 
-      # We change the rows from a 2-dimensional array to an array of hashes.
-      # This means that each row will be a sub-document in MongoDB
-      entry_rows = entry['rows']
-      hashed_rows = Array[]
-      for entry_row in entry_rows
-        hashed_row = Hash[columns.zip(entry_row)]
-        hashed_rows.push(hashed_row)
-      end
+    rowsets.each do |entry|
+      entry_date = entry['generatedAt']
 
-      # And we also update the entry with the newly formatted rows
-      entry.update(Hash['rows', hashed_rows])
-      
-      # We check if a record is already there for the given region and item
-      region = entry['regionID']
-      type = entry['typeID']
-      current = @selected.find_one({'regionID' => region, 'typeID' => type})
-      
-      # If there's no record for one item, we add it.
-      if current == nil
-        @selected.insert(entry)
+      if (category == 'history' or category == 'orders') and entry_date <= system_date
 
-      # If there's a record already, we may want to update it.
-      else
-        id = current["_id"]
-        current_date = current['generatedAt']
+        region = entry['regionID']
+        type = entry['typeID']
+        current = @coll[category].find_one({'regionID' => region, 'typeID' => type})
 
-        # If the entry is newer than what we currently have, we update the DB.
-        if current_date < entry_date
+        if current == nil
+          entry.zip!(columns)
+          @coll[category].insert(entry)
 
-          # If we're working with history, we have to keep some subdocuments,
-          # Given that the database may have some older records, too.
-          # To do so, we modify 'entry' to include older records.
-          if @selected == @history
-            rows = combine_rows(entry['rows'], current['rows'])
-            entry.update(Hash['rows', rows])
+        else
+          current_date = current['generatedAt']
+          id = current['_id']
+
+          if category == 'history'
+            entry.zip!(columns)
+            if current_date < entry_date
+              main_record = entry
+              sec_record = current
+            else
+              main_record = current
+              sec_record = entry
+            end
+            main_record.combine!(sec_record)
+            @coll['history'].update({'_id' => id}, main_record)
+
+          elsif current_date < entry_date
+            entry.zip!(columns)
+            @coll[category].update({'_id' => id}, entry)
           end
-
-          # Finally, we update our entry.
-          @selected.update({'_id' => id}, entry)
-
-        # If the current document is older than the latest,
-        # It may still contain old data the DB doesn't have
-        elsif @selected == @history
-            rows = combine_rows(current['rows'], entry['rows'])
-            @selected.update({'_id' => id}, {'$set' => {'rows' => rows}})
-        end 
+        end
+      else 
+        if entry_date > system_date
+          logger.warn "Time #{date} happens after current time #{system_date}."
+        else
+          logger.warn "Category #{category} doesn't exist."
+        end
+        logger.info "Offending message is #{market_data}"
       end
-
-    # Catch errors from malformed items
-    else 
-      if entry_date > system_date
-        logger.error { "Time #{date} happens after current time #{system_date}." }
-      else
-        logger.error { "Category #{category} doesn't exist." }
-      end
-
-      # Also output the message in question for tracking
-      logger.info { 'Offending message caught:' }
-      logger.info { market_data }
     end
   end
 end

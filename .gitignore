@@ -1,3 +1,2 @@
 .DS_Store
-firehose.log
-firehose.pid
+Gemfile.lock

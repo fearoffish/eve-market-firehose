@@ -1,10 +1,10 @@
 [Unit]
-Description=EMDR Reader for MongoDB
+Description=EMDR Data API with MongoDB backend
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/ruby /usr/lib/eve/data.rb
+ExecStart=/usr/bin/ruby /usr/lib/eve/api.rb
 User=daemon
 Group=daemon
 Restart=always
